@@ -11,10 +11,22 @@ interface Topic {
   hours: number;
 }
 
+interface ScheduleItem {
+  topicName: string;
+  hours: number;
+  type: 'NEW' | 'REVIEW';
+}
+
+interface DaySchedule {
+  date: string;
+  items: ScheduleItem[];
+}
+
 const StudyPlannerForm = () => {
   const [examDate, setExamDate] = useState('');
   const [studyHours, setStudyHours] = useState('');
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [newTopic, setNewTopic] = useState<{
     name: string;
     priority: 'High' | 'Medium' | 'Low';
@@ -43,8 +55,90 @@ const StudyPlannerForm = () => {
   };
 
   const generatePlan = () => {
-    // TODO: Implement AI study plan generation
-    console.log('Generating study plan...', { examDate, studyHours, topics });
+    // Step 1: Sort topics by priority
+    const priorityOrder = { 'High': 0, 'Medium': 1, 'Low': 2 };
+    const sortedTopics = [...topics].sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+    
+    // Step 2: Calculate total days
+    const today = new Date();
+    const examDateObj = new Date(examDate);
+    const totalDays = Math.ceil((examDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (totalDays <= 0) {
+      alert('Exam date must be in the future!');
+      return;
+    }
+    
+    // Step 3: Create empty day-by-day schedule
+    const dailyHours = parseFloat(studyHours);
+    const daySchedules: DaySchedule[] = [];
+    const remainingHours: number[] = [];
+    
+    for (let i = 0; i < totalDays; i++) {
+      const currentDate = new Date(today);
+      currentDate.setDate(today.getDate() + i);
+      daySchedules.push({
+        date: currentDate.toLocaleDateString(),
+        items: []
+      });
+      remainingHours.push(dailyHours);
+    }
+    
+    // Step 4: Schedule topics
+    const topicsToReview: { topicName: string, firstScheduledDay: number }[] = [];
+    
+    for (const topic of sortedTopics) {
+      let topicHoursLeft = topic.hours;
+      
+      while (topicHoursLeft > 0) {
+        // Find first day with available hours
+        let scheduledDay = -1;
+        for (let dayIndex = 0; dayIndex < totalDays; dayIndex++) {
+          if (remainingHours[dayIndex] >= 1) {
+            scheduledDay = dayIndex;
+            break;
+          }
+        }
+        
+        if (scheduledDay === -1) {
+          alert(`Not enough time to schedule all topics! Consider increasing daily study hours or extending exam date.`);
+          return;
+        }
+        
+        // Schedule 1-2 hour block (or remaining hours if less)
+        const hoursToSchedule = Math.min(Math.min(2, topicHoursLeft), remainingHours[scheduledDay]);
+        
+        daySchedules[scheduledDay].items.push({
+          topicName: topic.name,
+          hours: hoursToSchedule,
+          type: 'NEW'
+        });
+        
+        // Track first scheduled day for review
+        if (topicHoursLeft === topic.hours) {
+          topicsToReview.push({ topicName: topic.name, firstScheduledDay: scheduledDay });
+        }
+        
+        remainingHours[scheduledDay] -= hoursToSchedule;
+        topicHoursLeft -= hoursToSchedule;
+      }
+    }
+    
+    // Step 5: Add spaced repetition (review sessions)
+    for (const { topicName, firstScheduledDay } of topicsToReview) {
+      const reviewDay = firstScheduledDay + 2;
+      
+      if (reviewDay < totalDays && remainingHours[reviewDay] >= 1) {
+        daySchedules[reviewDay].items.push({
+          topicName,
+          hours: 1,
+          type: 'REVIEW'
+        });
+        remainingHours[reviewDay] -= 1;
+      }
+    }
+    
+    setSchedule(daySchedules);
   };
 
   return (
@@ -205,6 +299,43 @@ const StudyPlannerForm = () => {
           Generate My AI Study Plan
         </Button>
       </div>
+
+      {/* Schedule Display */}
+      {schedule.length > 0 && (
+        <section className="space-y-6 pt-8 border-t">
+          <h2 className="text-2xl font-semibold text-foreground">Your AI Study Plan</h2>
+          <div className="space-y-4">
+            {schedule.map((day, index) => (
+              <div key={index} className="bg-card border rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-foreground mb-3">
+                  Day {index + 1}: {day.date}
+                </h3>
+                {day.items.length > 0 ? (
+                  <div className="space-y-2">
+                    {day.items.map((item, itemIndex) => (
+                      <div key={itemIndex} className="flex items-center justify-between bg-muted/30 rounded p-3">
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium">{item.topicName}</span>
+                          <span className="text-muted-foreground">({item.hours} hour{item.hours !== 1 ? 's' : ''})</span>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          item.type === 'NEW' 
+                            ? 'bg-primary/10 text-primary' 
+                            : 'bg-secondary/10 text-secondary-foreground'
+                        }`}>
+                          [{item.type}]
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">Rest day - No studying scheduled</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };
