@@ -77,7 +77,7 @@ const StudyPlannerForm = () => {
           <Input
             id="study-hours"
             type="number"
-            min="1"
+            min="0.5"
             step="0.5"
             value={studyHours}
             onChange={(e) => setStudyHours(e.target.value)}
