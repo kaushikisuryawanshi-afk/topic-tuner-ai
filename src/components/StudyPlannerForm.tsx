@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface Topic {
   id: string;
@@ -11,15 +13,23 @@ interface Topic {
   hours: number;
 }
 
-interface ScheduleItem {
-  topicName: string;
+interface ScheduleSession {
   hours: number;
   type: 'NEW' | 'REVIEW';
 }
 
+interface TopicSchedule {
+  topicName: string;
+  sessions: ScheduleSession[];
+  totalHours: number;
+}
+
 interface DaySchedule {
   date: string;
-  items: ScheduleItem[];
+  dayNumber: number;
+  topics: TopicSchedule[];
+  totalScheduledHours: number;
+  availableHours: number;
 }
 
 const StudyPlannerForm = () => {
@@ -27,6 +37,7 @@ const StudyPlannerForm = () => {
   const [studyHours, setStudyHours] = useState('');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
+  const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
   const [newTopic, setNewTopic] = useState<{
     name: string;
     priority: 'High' | 'Medium' | 'Low';
@@ -69,7 +80,7 @@ const StudyPlannerForm = () => {
       return;
     }
     
-    // Step 3: Create empty day-by-day schedule
+    // Step 3: Create empty day-by-day schedule with new structure
     const dailyHours = parseFloat(studyHours);
     const daySchedules: DaySchedule[] = [];
     const remainingHours: number[] = [];
@@ -78,13 +89,21 @@ const StudyPlannerForm = () => {
       const currentDate = new Date(today);
       currentDate.setDate(today.getDate() + i);
       daySchedules.push({
-        date: currentDate.toLocaleDateString(),
-        items: []
+        date: currentDate.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }),
+        dayNumber: i + 1,
+        topics: [],
+        totalScheduledHours: 0,
+        availableHours: dailyHours
       });
       remainingHours.push(dailyHours);
     }
     
-    // Step 4: Schedule topics
+    // Step 4: Schedule topics with grouped structure
     const topicsToReview: { topicName: string, firstScheduledDay: number }[] = [];
     
     for (const topic of sortedTopics) {
@@ -108,37 +127,142 @@ const StudyPlannerForm = () => {
         // Schedule 1-2 hour block (or remaining hours if less)
         const hoursToSchedule = Math.min(Math.min(2, topicHoursLeft), remainingHours[scheduledDay]);
         
-        daySchedules[scheduledDay].items.push({
-          topicName: topic.name,
-          hours: hoursToSchedule,
-          type: 'NEW'
-        });
+        // Find existing topic in this day or create new one
+        let existingTopicIndex = daySchedules[scheduledDay].topics.findIndex(t => t.topicName === topic.name);
+        
+        if (existingTopicIndex === -1) {
+          // Create new topic entry for this day
+          daySchedules[scheduledDay].topics.push({
+            topicName: topic.name,
+            sessions: [{
+              hours: hoursToSchedule,
+              type: 'NEW'
+            }],
+            totalHours: hoursToSchedule
+          });
+        } else {
+          // Add to existing topic
+          daySchedules[scheduledDay].topics[existingTopicIndex].sessions.push({
+            hours: hoursToSchedule,
+            type: 'NEW'
+          });
+          daySchedules[scheduledDay].topics[existingTopicIndex].totalHours += hoursToSchedule;
+        }
         
         // Track first scheduled day for review
         if (topicHoursLeft === topic.hours) {
           topicsToReview.push({ topicName: topic.name, firstScheduledDay: scheduledDay });
         }
         
+        daySchedules[scheduledDay].totalScheduledHours += hoursToSchedule;
         remainingHours[scheduledDay] -= hoursToSchedule;
         topicHoursLeft -= hoursToSchedule;
       }
     }
     
-    // Step 5: Add spaced repetition (review sessions)
+    // Step 5: Add spaced repetition (review sessions) - 2 days later
     for (const { topicName, firstScheduledDay } of topicsToReview) {
       const reviewDay = firstScheduledDay + 2;
       
       if (reviewDay < totalDays && remainingHours[reviewDay] >= 1) {
-        daySchedules[reviewDay].items.push({
-          topicName,
-          hours: 1,
-          type: 'REVIEW'
-        });
+        // Find existing topic in review day or create new one
+        let existingTopicIndex = daySchedules[reviewDay].topics.findIndex(t => t.topicName === topicName);
+        
+        if (existingTopicIndex === -1) {
+          // Create new topic entry for review
+          daySchedules[reviewDay].topics.push({
+            topicName: `${topicName} Review`,
+            sessions: [{
+              hours: 1,
+              type: 'REVIEW'
+            }],
+            totalHours: 1
+          });
+        } else {
+          // Add review session to existing topic
+          daySchedules[reviewDay].topics[existingTopicIndex].sessions.push({
+            hours: 1,
+            type: 'REVIEW'
+          });
+          daySchedules[reviewDay].topics[existingTopicIndex].totalHours += 1;
+        }
+        
+        daySchedules[reviewDay].totalScheduledHours += 1;
         remainingHours[reviewDay] -= 1;
       }
     }
     
     setSchedule(daySchedules);
+  };
+
+  const toggleResourceGuide = (topicName: string) => {
+    const newExpanded = new Set(expandedResources);
+    if (newExpanded.has(topicName)) {
+      newExpanded.delete(topicName);
+    } else {
+      newExpanded.add(topicName);
+    }
+    setExpandedResources(newExpanded);
+  };
+
+  const generateResourceGuide = (topicName: string) => {
+    // Clean topic name for better suggestions (remove "Review" suffix if present)
+    const cleanTopicName = topicName.replace(' Review', '');
+    
+    // Generate smart study suggestions based on topic name
+    const keyTerms = generateKeyTerms(cleanTopicName);
+    
+    return {
+      freeResources: [
+        `Search for "${cleanTopicName} tutorial" on YouTube or Khan Academy`,
+        `Look for "${cleanTopicName} explained" videos with high views and ratings`,
+        `Check Coursera or edX for free courses on ${cleanTopicName}`
+      ],
+      bookSuggestions: [
+        `Find a PDF of "Introduction to ${cleanTopicName}" or "Fundamentals of ${cleanTopicName}"`,
+        `Search for "${cleanTopicName} textbook PDF" on Google Scholar`,
+        `Check your library for books on ${cleanTopicName}`
+      ],
+      keyTerms,
+      practiceQuestions: {
+        howMany: "10-15 practice problems",
+        wherToFind: [
+          `Search for "${cleanTopicName} worksheet with solutions"`,
+          `Look for "${cleanTopicName} practice problems PDF"`,
+          `Check websites like Khan Academy, Coursera, or educational GitHub repos`
+        ]
+      },
+      flashcards: {
+        count: "5-7 flashcards",
+        suggestion: "Use Anki or Quizlet to create digital flashcards for key terms and definitions"
+      }
+    };
+  };
+
+  const generateKeyTerms = (topicName: string) => {
+    // Simple AI-like inference of key terms based on topic name
+    const lowerTopic = topicName.toLowerCase();
+    
+    if (lowerTopic.includes('calculus')) {
+      return ['derivatives', 'integrals', 'limits'];
+    } else if (lowerTopic.includes('algebra')) {
+      return ['equations', 'variables', 'functions'];
+    } else if (lowerTopic.includes('physics')) {
+      return ['forces', 'energy', 'motion'];
+    } else if (lowerTopic.includes('chemistry')) {
+      return ['molecules', 'reactions', 'bonds'];
+    } else if (lowerTopic.includes('biology')) {
+      return ['cells', 'genetics', 'evolution'];
+    } else if (lowerTopic.includes('programming') || lowerTopic.includes('coding')) {
+      return ['algorithms', 'syntax', 'debugging'];
+    } else if (lowerTopic.includes('history')) {
+      return ['timeline', 'causes', 'effects'];
+    } else if (lowerTopic.includes('english') || lowerTopic.includes('literature')) {
+      return ['themes', 'analysis', 'structure'];
+    } else {
+      // Generic terms based on the topic name itself
+      return [topicName.toLowerCase(), 'concepts', 'applications'];
+    }
   };
 
   return (
@@ -300,38 +424,131 @@ const StudyPlannerForm = () => {
         </Button>
       </div>
 
-      {/* Schedule Display */}
+      {/* AI Study Plan Display */}
       {schedule.length > 0 && (
-        <section className="space-y-6 pt-8 border-t">
-          <h2 className="text-2xl font-semibold text-foreground">Your AI Study Plan</h2>
-          <div className="space-y-4">
-            {schedule.map((day, index) => (
-              <div key={index} className="bg-card border rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-foreground mb-3">
-                  Day {index + 1}: {day.date}
-                </h3>
-                {day.items.length > 0 ? (
-                  <div className="space-y-2">
-                    {day.items.map((item, itemIndex) => (
-                      <div key={itemIndex} className="flex items-center justify-between bg-muted/30 rounded p-3">
+        <section className="space-y-8 pt-12 border-t-2 border-primary/20">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-primary mb-2">🎯 Your AI-Powered Study Plan</h1>
+            <p className="text-lg text-muted-foreground">
+              Intelligent scheduling with spaced repetition for optimal learning
+            </p>
+          </div>
+          
+          <div className="space-y-6">
+            {schedule.filter(day => day.topics.length > 0).map((day, index) => (
+              <Card key={index} className="shadow-lg border-l-4 border-l-primary">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl text-primary">
+                    ## Day {day.dayNumber}: {day.date}
+                    <span className="text-base font-normal text-muted-foreground ml-3">
+                      - {day.totalScheduledHours} / {day.availableHours} Hours
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  {day.topics.map((topicSchedule, topicIndex) => (
+                    <div key={topicIndex} className="space-y-3">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <span className="font-medium">{item.topicName}</span>
-                          <span className="text-muted-foreground">({item.hours} hour{item.hours !== 1 ? 's' : ''})</span>
+                          <h4 className="text-lg font-semibold text-foreground">
+                            **{topicSchedule.topicName}** ({topicSchedule.totalHours} hours total)
+                          </h4>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleResourceGuide(topicSchedule.topicName)}
+                            className="text-xs"
+                          >
+                            📚 Get Resources
+                          </Button>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          item.type === 'NEW' 
-                            ? 'bg-primary/10 text-primary' 
-                            : 'bg-secondary/10 text-secondary-foreground'
-                        }`}>
-                          [{item.type}]
-                        </span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">Rest day - No studying scheduled</p>
-                )}
-              </div>
+                      
+                      <div className="ml-4 space-y-2">
+                        {topicSchedule.sessions.map((session, sessionIndex) => (
+                          <div key={sessionIndex} className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-primary"></span>
+                            <span className="text-foreground">
+                              {session.hours} hour{session.hours !== 1 ? 's' : ''} - 
+                            </span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              session.type === 'NEW' 
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
+                                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            }`}>
+                              {session.type === 'NEW' ? 'New Material' : 'Review from 2 days ago'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Resource Guide */}
+                      <Collapsible open={expandedResources.has(topicSchedule.topicName)}>
+                        <CollapsibleContent className="ml-4 mt-4">
+                          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
+                            <CardHeader>
+                              <CardTitle className="text-lg text-blue-800 dark:text-blue-200">
+                                ### 🧠 Smart Study Guide for {topicSchedule.topicName.replace(' Review', '')}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4 text-sm">
+                              {(() => {
+                                const guide = generateResourceGuide(topicSchedule.topicName);
+                                return (
+                                  <>
+                                    <div>
+                                      <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                                        **1. How to Learn This:**
+                                      </h5>
+                                      <div className="space-y-1 ml-4">
+                                        <p><strong>Free Resources:</strong></p>
+                                        {guide.freeResources.map((resource, i) => (
+                                          <p key={i} className="text-blue-800 dark:text-blue-200">- {resource}</p>
+                                        ))}
+                                        <p className="mt-2"><strong>Book Suggestions:</strong></p>
+                                        {guide.bookSuggestions.map((book, i) => (
+                                          <p key={i} className="text-blue-800 dark:text-blue-200">- {book}</p>
+                                        ))}
+                                        <p className="mt-2">
+                                          <strong>Key Concepts to Focus On:</strong> {guide.keyTerms.join(', ')}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    
+                                    <div>
+                                      <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                                        **2. Practice Questions:**
+                                      </h5>
+                                      <div className="space-y-1 ml-4">
+                                        <p><strong>How Many:</strong> Aim for **{guide.practiceQuestions.howMany}** for this topic.</p>
+                                        <p><strong>Where to Find Them:</strong></p>
+                                        {guide.practiceQuestions.wherToFind.map((source, i) => (
+                                          <p key={i} className="text-blue-800 dark:text-blue-200">- {source}</p>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    
+                                    <div>
+                                      <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                                        **3. Make Flashcards:**
+                                      </h5>
+                                      <div className="space-y-1 ml-4">
+                                        <p><strong>Create {guide.flashcards.count}</strong> for the key terms and definitions.</p>
+                                        <p><strong>App Suggestion:</strong> {guide.flashcards.suggestion}</p>
+                                      </div>
+                                    </div>
+                                  </>
+                                );
+                              })()}
+                            </CardContent>
+                          </Card>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
             ))}
           </div>
         </section>
