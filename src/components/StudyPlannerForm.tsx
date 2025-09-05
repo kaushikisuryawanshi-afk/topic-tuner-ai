@@ -35,6 +35,7 @@ interface DaySchedule {
 const StudyPlannerForm = () => {
   const [examDate, setExamDate] = useState('');
   const [studyHours, setStudyHours] = useState('');
+  const [academicLevel, setAcademicLevel] = useState('');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
@@ -209,27 +210,28 @@ const StudyPlannerForm = () => {
     // Clean topic name for better suggestions (remove "Review" suffix if present)
     const cleanTopicName = topicName.replace(' Review', '');
     
-    // Generate smart study suggestions based on topic name
-    const keyTerms = generateKeyTerms(cleanTopicName);
+    // Generate smart study suggestions based on topic name and academic level
+    const keyTerms = generateKeyTerms(cleanTopicName, academicLevel);
+    const levelSpecificBook = generateBookSuggestion(cleanTopicName, academicLevel);
     
     return {
       freeResources: [
-        `Search for "${cleanTopicName} tutorial" on YouTube or Khan Academy`,
-        `Look for "${cleanTopicName} explained" videos with high views and ratings`,
-        `Check Coursera or edX for free courses on ${cleanTopicName}`
+        `Search for "${cleanTopicName} ${academicLevel}" on YouTube. For example, for 'Calculus Class 12', search for 'Calculus Class 12 JEE' or 'Calculus CBSE Boards'`,
+        `Look for "${cleanTopicName}" courses on SWAYAM or NPTEL that are tagged for your level (e.g., 'Undergraduate')`,
+        `Check Khan Academy for "${cleanTopicName}" content suitable for your academic level`
       ],
       bookSuggestions: [
-        `Find a PDF of "Introduction to ${cleanTopicName}" or "Fundamentals of ${cleanTopicName}"`,
-        `Search for "${cleanTopicName} textbook PDF" on Google Scholar`,
-        `Check your library for books on ${cleanTopicName}`
+        `For your level, a common textbook is often "${levelSpecificBook}". Search for its PDF online`,
+        `Search for "${cleanTopicName} ${academicLevel} textbook PDF" on Google Scholar`,
+        `Check your library for books specifically recommended for ${academicLevel} students`
       ],
       keyTerms,
       practiceQuestions: {
         howMany: "10-15 practice problems",
         wherToFind: [
-          `Search for "${cleanTopicName} worksheet with solutions"`,
-          `Look for "${cleanTopicName} practice problems PDF"`,
-          `Check websites like Khan Academy, Coursera, or educational GitHub repos`
+          `Search for "${cleanTopicName} ${academicLevel} important questions" or "${cleanTopicName} ${academicLevel} worksheet PDF"`,
+          `For exam prep, search for "${academicLevel} ${cleanTopicName} previous year papers"`,
+          `Check educational websites that specialize in ${academicLevel} level content`
         ]
       },
       flashcards: {
@@ -239,22 +241,49 @@ const StudyPlannerForm = () => {
     };
   };
 
-  const generateKeyTerms = (topicName: string) => {
-    // Simple AI-like inference of key terms based on topic name
+  const generateKeyTerms = (topicName: string, level: string) => {
+    // Level-appropriate inference of key terms based on topic name and academic level
     const lowerTopic = topicName.toLowerCase();
+    const lowerLevel = level.toLowerCase();
     
     if (lowerTopic.includes('calculus')) {
-      return ['derivatives', 'integrals', 'limits'];
+      if (lowerLevel.includes('class 11') || lowerLevel.includes('class 12')) {
+        return ['limits', 'derivatives', 'applications of derivatives'];
+      } else if (lowerLevel.includes('engineering') || lowerLevel.includes('university')) {
+        return ['differential calculus', 'integral calculus', 'multivariable calculus'];
+      } else {
+        return ['derivatives', 'integrals', 'limits'];
+      }
     } else if (lowerTopic.includes('algebra')) {
-      return ['equations', 'variables', 'functions'];
+      if (lowerLevel.includes('class 9') || lowerLevel.includes('class 10')) {
+        return ['linear equations', 'quadratic equations', 'polynomials'];
+      } else {
+        return ['equations', 'variables', 'functions'];
+      }
+    } else if (lowerTopic.includes('shakespeare')) {
+      if (lowerLevel.includes('class 9') || lowerLevel.includes('icse') || lowerLevel.includes('cbse')) {
+        return ['Macbeth themes', 'character analysis', 'plot summary'];
+      } else if (lowerLevel.includes('ma') || lowerLevel.includes('literature')) {
+        return ['critical analysis', 'literary devices', 'contextual interpretation'];
+      } else {
+        return ['themes', 'characters', 'literary techniques'];
+      }
     } else if (lowerTopic.includes('physics')) {
-      return ['forces', 'energy', 'motion'];
+      if (lowerLevel.includes('class 11') || lowerLevel.includes('class 12')) {
+        return ['mechanics', 'thermodynamics', 'electromagnetism'];
+      } else {
+        return ['forces', 'energy', 'motion'];
+      }
     } else if (lowerTopic.includes('chemistry')) {
       return ['molecules', 'reactions', 'bonds'];
     } else if (lowerTopic.includes('biology')) {
       return ['cells', 'genetics', 'evolution'];
     } else if (lowerTopic.includes('programming') || lowerTopic.includes('coding')) {
-      return ['algorithms', 'syntax', 'debugging'];
+      if (lowerLevel.includes('1st year') || lowerLevel.includes('beginner')) {
+        return ['syntax', 'variables', 'loops'];
+      } else {
+        return ['algorithms', 'data structures', 'debugging'];
+      }
     } else if (lowerTopic.includes('history')) {
       return ['timeline', 'causes', 'effects'];
     } else if (lowerTopic.includes('english') || lowerTopic.includes('literature')) {
@@ -262,6 +291,39 @@ const StudyPlannerForm = () => {
     } else {
       // Generic terms based on the topic name itself
       return [topicName.toLowerCase(), 'concepts', 'applications'];
+    }
+  };
+
+  const generateBookSuggestion = (topicName: string, level: string) => {
+    const lowerTopic = topicName.toLowerCase();
+    const lowerLevel = level.toLowerCase();
+    
+    if (lowerTopic.includes('calculus')) {
+      if (lowerLevel.includes('engineering') || lowerLevel.includes('university')) {
+        return "Thomas' Calculus or Stewart's Calculus";
+      } else if (lowerLevel.includes('class 12') || lowerLevel.includes('cbse')) {
+        return "RD Sharma Class 12 Mathematics";
+      } else {
+        return "Introduction to Calculus";
+      }
+    } else if (lowerTopic.includes('algebra')) {
+      if (lowerLevel.includes('class 10') || lowerLevel.includes('cbse')) {
+        return "RD Sharma Class 10 Mathematics";
+      } else {
+        return "Elementary Algebra";
+      }
+    } else if (lowerTopic.includes('physics')) {
+      if (lowerLevel.includes('class 12') || lowerLevel.includes('cbse')) {
+        return "HC Verma Concepts of Physics";
+      } else if (lowerLevel.includes('engineering')) {
+        return "Resnick, Halliday & Walker Physics";
+      } else {
+        return "Fundamentals of Physics";
+      }
+    } else if (lowerTopic.includes('programming') && lowerTopic.includes('python')) {
+      return "Automate the Boring Stuff with Python or Python Crash Course";
+    } else {
+      return `Introduction to ${topicName} or Fundamentals of ${topicName}`;
     }
   };
 
@@ -306,9 +368,28 @@ const StudyPlannerForm = () => {
         </div>
       </section>
 
+      {/* Academic Level Section */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold text-foreground">3. Academic Level</h2>
+        <div className="space-y-2">
+          <Label htmlFor="academic-level" className="text-base font-medium">
+            Academic Level / Course Context:
+          </Label>
+          <Input
+            id="academic-level"
+            type="text"
+            value={academicLevel}
+            onChange={(e) => setAcademicLevel(e.target.value)}
+            required
+            className="w-full max-w-md"
+            placeholder="e.g., 'Class 10 CBSE', '1st Year Computer Science', 'GMAT Prep', 'Self-Learner'"
+          />
+        </div>
+      </section>
+
       {/* Topics Section */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-semibold text-foreground">3. Add Your Topics</h2>
+        <h2 className="text-2xl font-semibold text-foreground">4. Add Your Topics</h2>
         <p className="text-muted-foreground">
           Enter each topic you need to study, its priority, and how long you think it will take.
         </p>
@@ -418,7 +499,7 @@ const StudyPlannerForm = () => {
           size="lg"
           onClick={generatePlan}
           className="w-full max-w-md mx-auto block py-4 text-lg"
-          disabled={!examDate || !studyHours || topics.length === 0}
+          disabled={!examDate || !studyHours || !academicLevel || topics.length === 0}
         >
           Generate My AI Study Plan
         </Button>
@@ -489,7 +570,7 @@ const StudyPlannerForm = () => {
                           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
                             <CardHeader>
                               <CardTitle className="text-lg text-blue-800 dark:text-blue-200">
-                                ### 🧠 Smart Study Guide for {topicSchedule.topicName.replace(' Review', '')}
+                                ### 🧠 Smart Study Guide for {topicSchedule.topicName.replace(' Review', '')} ({academicLevel})
                               </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4 text-sm">
@@ -499,20 +580,14 @@ const StudyPlannerForm = () => {
                                   <>
                                     <div>
                                       <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                                        **1. How to Learn This:**
+                                        **1. How to Learn This for Your Level:**
                                       </h5>
                                       <div className="space-y-1 ml-4">
-                                        <p><strong>Free Resources:</strong></p>
+                                        <p><strong>YouTube:</strong></p>
                                         {guide.freeResources.map((resource, i) => (
                                           <p key={i} className="text-blue-800 dark:text-blue-200">- {resource}</p>
                                         ))}
-                                        <p className="mt-2"><strong>Book Suggestions:</strong></p>
-                                        {guide.bookSuggestions.map((book, i) => (
-                                          <p key={i} className="text-blue-800 dark:text-blue-200">- {book}</p>
-                                        ))}
-                                        <p className="mt-2">
-                                          <strong>Key Concepts to Focus On:</strong> {guide.keyTerms.join(', ')}
-                                        </p>
+                                        <p className="mt-2"><strong>Key Concepts:</strong> Based on your level, you should focus on: {guide.keyTerms.join(', ')}</p>
                                       </div>
                                     </div>
                                     
@@ -531,7 +606,18 @@ const StudyPlannerForm = () => {
                                     
                                     <div>
                                       <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                                        **3. Make Flashcards:**
+                                        **3. Book Suggestions:**
+                                      </h5>
+                                      <div className="space-y-1 ml-4">
+                                        {guide.bookSuggestions.map((book, i) => (
+                                          <p key={i} className="text-blue-800 dark:text-blue-200">- {book}</p>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                                        **4. Make Flashcards:**
                                       </h5>
                                       <div className="space-y-1 ml-4">
                                         <p><strong>Create {guide.flashcards.count}</strong> for the key terms and definitions.</p>
