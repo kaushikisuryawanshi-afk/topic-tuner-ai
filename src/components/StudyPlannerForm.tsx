@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface Topic {
   id: string;
@@ -33,12 +33,11 @@ interface DaySchedule {
 }
 
 const StudyPlannerForm = () => {
+  const navigate = useNavigate();
   const [examDate, setExamDate] = useState('');
   const [studyHours, setStudyHours] = useState('');
   const [academicLevel, setAcademicLevel] = useState('');
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [schedule, setSchedule] = useState<DaySchedule[]>([]);
-  const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
   const [newTopic, setNewTopic] = useState<{
     name: string;
     priority: 'High' | 'Medium' | 'Low';
@@ -192,205 +191,16 @@ const StudyPlannerForm = () => {
         remainingHours[reviewDay] -= 1;
       }
     }
-    
-    setSchedule(daySchedules);
-  };
-
-  const toggleResourceGuide = (topicName: string) => {
-    const newExpanded = new Set(expandedResources);
-    if (newExpanded.has(topicName)) {
-      newExpanded.delete(topicName);
-    } else {
-      newExpanded.add(topicName);
-    }
-    setExpandedResources(newExpanded);
-  };
-
-  const categorizeSubject = (topicName: string) => {
-    const lowerTopic = topicName.toLowerCase();
-    
-    // Math/Quantitative Subjects
-    if (lowerTopic.includes('calculus') || lowerTopic.includes('algebra') || 
-        lowerTopic.includes('geometry') || lowerTopic.includes('trigonometry') || 
-        lowerTopic.includes('probability') || lowerTopic.includes('statistics') || 
-        lowerTopic.includes('maths') || lowerTopic.includes('mathematics') ||
-        lowerTopic.includes('differential') || lowerTopic.includes('integral')) {
-      return 'MATH';
-    }
-    
-    // Programming/Technical Subjects
-    if (lowerTopic.includes('python') || lowerTopic.includes('java') || 
-        lowerTopic.includes('javascript') || lowerTopic.includes('coding') || 
-        lowerTopic.includes('programming') || lowerTopic.includes('data structures') || 
-        lowerTopic.includes('algorithms') || lowerTopic.includes('software') ||
-        lowerTopic.includes('html') || lowerTopic.includes('css') ||
-        lowerTopic.includes('react') || lowerTopic.includes('node')) {
-      return 'PROGRAMMING';
-    }
-    
-    // Theory/Conceptual Subjects (default for most other subjects)
-    return 'THEORY';
-  };
-
-  const generateResourceGuide = (topicName: string) => {
-    // Clean topic name for better suggestions (remove "Review" suffix if present)
-    const cleanTopicName = topicName.replace(' Review', '');
-    const category = categorizeSubject(cleanTopicName);
-    
-    // Generate smart study suggestions based on category, topic name and academic level
-    const keyTerms = generateKeyTerms(cleanTopicName, academicLevel);
-    const levelSpecificBook = generateBookSuggestion(cleanTopicName, academicLevel);
-    
-    // Category-specific advice
-    let howToLearn, practiceAdvice, bookAdvice;
-    
-    if (category === 'MATH') {
-      howToLearn = [
-        "Focus on understanding formulas and practicing derivations. Watch videos that solve problems step-by-step.",
-        `Search for "${cleanTopicName} ${academicLevel} solved examples" on YouTube`,
-        "Don't just memorize - understand the logic behind each step"
-      ];
-      practiceAdvice = {
-        howMany: "20-30 problems per day",
-        wherToFind: [
-          `Search for "${cleanTopicName} problem set with solutions"`,
-          `Look for "${cleanTopicName} ${academicLevel} practice worksheet PDF"`,
-          "Practice is key - solve problems daily to build muscle memory"
-        ]
-      };
-      bookAdvice = `For ${academicLevel}, common books are "${levelSpecificBook}". Search for "engineering mathematics 1 book pdf" or similar.`;
-    } else if (category === 'PROGRAMMING') {
-      howToLearn = [
-        "You must code along with the tutorial. Don't just watch.",
-        `Search for "${cleanTopicName} projects for beginners" or "${cleanTopicName} crash course"`,
-        "Set up a development environment and practice coding immediately"
-      ];
-      practiceAdvice = {
-        howMany: "Build 2-3 small projects",
-        wherToFind: [
-          "Solve problems on platforms like HackerRank or LeetCode for this topic",
-          `Search for "${cleanTopicName} coding challenges" or "${cleanTopicName} mini projects"`,
-          "GitHub has tons of beginner-friendly project ideas"
-        ]
-      };
-      bookAdvice = `Look for practical books like "Automate the Boring Stuff with Python" or "Head First Java" depending on your language.`;
-    } else { // THEORY subjects
-      howToLearn = [
-        "Focus on concepts, definitions, and case studies. Watch documentary-style videos or overview lectures.",
-        `Search for "${cleanTopicName} ${academicLevel} concepts explained" on YouTube`,
-        "Create mind maps to connect related concepts"
-      ];
-      practiceAdvice = {
-        howMany: "Focus on long and short answer questions",
-        wherToFind: [
-          `Search for "${cleanTopicName} important questions" or "${cleanTopicName} notes"`,
-          `Look for "${academicLevel} ${cleanTopicName} question bank PDF"`,
-          "Practice explaining concepts in your own words"
-        ]
-      };
-      bookAdvice = `Look for textbooks by your university's prescribed author. Search for "${cleanTopicName} textbook pdf" or "${academicLevel} ${cleanTopicName} notes".`;
-    }
-    
-    return {
-      freeResources: howToLearn,
-      bookSuggestions: [
-        bookAdvice,
-        `Search for "${cleanTopicName} ${academicLevel} textbook PDF" on Google Scholar`,
-        `Check your library for books specifically recommended for ${academicLevel} students`
-      ],
-      keyTerms,
-      practiceQuestions: practiceAdvice,
-      flashcards: {
-        count: "5-7 flashcards",
-        suggestion: "Use Anki or Quizlet to create digital flashcards for key terms and definitions"
-      }
-    };
-  };
-
-  const generateKeyTerms = (topicName: string, level: string) => {
-    // Level-appropriate inference of key terms based on topic name and academic level
-    const lowerTopic = topicName.toLowerCase();
-    const lowerLevel = level.toLowerCase();
-    
-    if (lowerTopic.includes('calculus')) {
-      if (lowerLevel.includes('class 11') || lowerLevel.includes('class 12')) {
-        return ['limits', 'derivatives', 'applications of derivatives'];
-      } else if (lowerLevel.includes('engineering') || lowerLevel.includes('university')) {
-        return ['differential calculus', 'integral calculus', 'multivariable calculus'];
-      } else {
-        return ['derivatives', 'integrals', 'limits'];
-      }
-    } else if (lowerTopic.includes('algebra')) {
-      if (lowerLevel.includes('class 9') || lowerLevel.includes('class 10')) {
-        return ['linear equations', 'quadratic equations', 'polynomials'];
-      } else {
-        return ['equations', 'variables', 'functions'];
-      }
-    } else if (lowerTopic.includes('shakespeare')) {
-      if (lowerLevel.includes('class 9') || lowerLevel.includes('icse') || lowerLevel.includes('cbse')) {
-        return ['Macbeth themes', 'character analysis', 'plot summary'];
-      } else if (lowerLevel.includes('ma') || lowerLevel.includes('literature')) {
-        return ['critical analysis', 'literary devices', 'contextual interpretation'];
-      } else {
-        return ['themes', 'characters', 'literary techniques'];
-      }
-    } else if (lowerTopic.includes('physics')) {
-      if (lowerLevel.includes('class 11') || lowerLevel.includes('class 12')) {
-        return ['mechanics', 'thermodynamics', 'electromagnetism'];
-      } else {
-        return ['forces', 'energy', 'motion'];
-      }
-    } else if (lowerTopic.includes('chemistry')) {
-      return ['molecules', 'reactions', 'bonds'];
-    } else if (lowerTopic.includes('biology')) {
-      return ['cells', 'genetics', 'evolution'];
-    } else if (lowerTopic.includes('programming') || lowerTopic.includes('coding')) {
-      if (lowerLevel.includes('1st year') || lowerLevel.includes('beginner')) {
-        return ['syntax', 'variables', 'loops'];
-      } else {
-        return ['algorithms', 'data structures', 'debugging'];
-      }
-    } else if (lowerTopic.includes('history')) {
-      return ['timeline', 'causes', 'effects'];
-    } else if (lowerTopic.includes('english') || lowerTopic.includes('literature')) {
-      return ['themes', 'analysis', 'structure'];
-    } else {
-      // Generic terms based on the topic name itself
-      return [topicName.toLowerCase(), 'concepts', 'applications'];
-    }
-  };
-
-  const generateBookSuggestion = (topicName: string, level: string) => {
-    const lowerTopic = topicName.toLowerCase();
-    const lowerLevel = level.toLowerCase();
-    
-    if (lowerTopic.includes('calculus')) {
-      if (lowerLevel.includes('engineering') || lowerLevel.includes('university')) {
-        return "Thomas' Calculus or Stewart's Calculus";
-      } else if (lowerLevel.includes('class 12') || lowerLevel.includes('cbse')) {
-        return "RD Sharma Class 12 Mathematics";
-      } else {
-        return "Introduction to Calculus";
-      }
-    } else if (lowerTopic.includes('algebra')) {
-      if (lowerLevel.includes('class 10') || lowerLevel.includes('cbse')) {
-        return "RD Sharma Class 10 Mathematics";
-      } else {
-        return "Elementary Algebra";
-      }
-    } else if (lowerTopic.includes('physics')) {
-      if (lowerLevel.includes('class 12') || lowerLevel.includes('cbse')) {
-        return "HC Verma Concepts of Physics";
-      } else if (lowerLevel.includes('engineering')) {
-        return "Resnick, Halliday & Walker Physics";
-      } else {
-        return "Fundamentals of Physics";
-      }
-    } else if (lowerTopic.includes('programming') && lowerTopic.includes('python')) {
-      return "Automate the Boring Stuff with Python or Python Crash Course";
-    } else {
-      return `Introduction to ${topicName} or Fundamentals of ${topicName}`;
-    }
+    // Navigate to results page with the generated schedule data
+    navigate('/results', { 
+      state: { 
+        examDate, 
+        studyHours, 
+        academicLevel, 
+        topics, 
+        schedule: daySchedules 
+      } 
+    });
   };
 
   return (
@@ -567,144 +377,8 @@ const StudyPlannerForm = () => {
           className="w-full max-w-md mx-auto block py-4 text-lg"
           disabled={!examDate || !studyHours || !academicLevel || topics.length === 0}
         >
-          Generate My AI Study Plan
         </Button>
       </div>
-
-      {/* AI Study Plan Display */}
-      {schedule.length > 0 && (
-        <section className="space-y-8 pt-12 border-t-2 border-primary/20">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-primary mb-2">🎯 Your AI-Powered Study Plan</h1>
-            <p className="text-lg text-muted-foreground">
-              Intelligent scheduling with spaced repetition for optimal learning
-            </p>
-          </div>
-          
-          <div className="space-y-6">
-            {schedule.filter(day => day.topics.length > 0).map((day, index) => (
-              <Card key={index} className="shadow-lg border-l-4 border-l-primary">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-xl text-primary">
-                    ## Day {day.dayNumber}: {day.date}
-                    <span className="text-base font-normal text-muted-foreground ml-3">
-                      - {day.totalScheduledHours} / {day.availableHours} Hours
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  {day.topics.map((topicSchedule, topicIndex) => (
-                    <div key={topicIndex} className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <h4 className="text-lg font-semibold text-foreground">
-                            **{topicSchedule.topicName}** ({topicSchedule.totalHours} hours total)
-                          </h4>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleResourceGuide(topicSchedule.topicName)}
-                            className="text-xs"
-                          >
-                            📚 Get Resources
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <div className="ml-4 space-y-2">
-                        {topicSchedule.sessions.map((session, sessionIndex) => (
-                          <div key={sessionIndex} className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-primary"></span>
-                            <span className="text-foreground">
-                              {session.hours} hour{session.hours !== 1 ? 's' : ''} - 
-                            </span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              session.type === 'NEW' 
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
-                                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            }`}>
-                              {session.type === 'NEW' ? 'New Material' : 'Review from 2 days ago'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {/* Resource Guide */}
-                      <Collapsible open={expandedResources.has(topicSchedule.topicName)}>
-                        <CollapsibleContent className="ml-4 mt-4">
-                          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
-                            <CardHeader>
-                              <CardTitle className="text-lg text-blue-800 dark:text-blue-200">
-                                ### 🧠 Smart Study Guide for {topicSchedule.topicName.replace(' Review', '')} ({academicLevel})
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4 text-sm">
-                              {(() => {
-                                const guide = generateResourceGuide(topicSchedule.topicName);
-                                return (
-                                  <>
-                                    <div>
-                                      <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                                        **1. How to Learn This for Your Level:**
-                                      </h5>
-                                      <div className="space-y-1 ml-4">
-                                        <p><strong>YouTube:</strong></p>
-                                        {guide.freeResources.map((resource, i) => (
-                                          <p key={i} className="text-blue-800 dark:text-blue-200">- {resource}</p>
-                                        ))}
-                                        <p className="mt-2"><strong>Key Concepts:</strong> Based on your level, you should focus on: {guide.keyTerms.join(', ')}</p>
-                                      </div>
-                                    </div>
-                                    
-                                    <div>
-                                      <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                                        **2. Practice Questions:**
-                                      </h5>
-                                      <div className="space-y-1 ml-4">
-                                        <p><strong>How Many:</strong> Aim for **{guide.practiceQuestions.howMany}** for this topic.</p>
-                                        <p><strong>Where to Find Them:</strong></p>
-                                        {guide.practiceQuestions.wherToFind.map((source, i) => (
-                                          <p key={i} className="text-blue-800 dark:text-blue-200">- {source}</p>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    
-                                    <div>
-                                      <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                                        **3. Book Suggestions:**
-                                      </h5>
-                                      <div className="space-y-1 ml-4">
-                                        {guide.bookSuggestions.map((book, i) => (
-                                          <p key={i} className="text-blue-800 dark:text-blue-200">- {book}</p>
-                                        ))}
-                                      </div>
-                                    </div>
-
-                                    <div>
-                                      <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                                        **4. Make Flashcards:**
-                                      </h5>
-                                      <div className="space-y-1 ml-4">
-                                        <p><strong>Create {guide.flashcards.count}</strong> for the key terms and definitions.</p>
-                                        <p><strong>App Suggestion:</strong> {guide.flashcards.suggestion}</p>
-                                      </div>
-                                    </div>
-                                  </>
-                                );
-                              })()}
-                            </CardContent>
-                          </Card>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 };
