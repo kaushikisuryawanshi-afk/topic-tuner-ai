@@ -206,34 +206,100 @@ const StudyPlannerForm = () => {
     setExpandedResources(newExpanded);
   };
 
+  const categorizeSubject = (topicName: string) => {
+    const lowerTopic = topicName.toLowerCase();
+    
+    // Math/Quantitative Subjects
+    if (lowerTopic.includes('calculus') || lowerTopic.includes('algebra') || 
+        lowerTopic.includes('geometry') || lowerTopic.includes('trigonometry') || 
+        lowerTopic.includes('probability') || lowerTopic.includes('statistics') || 
+        lowerTopic.includes('maths') || lowerTopic.includes('mathematics') ||
+        lowerTopic.includes('differential') || lowerTopic.includes('integral')) {
+      return 'MATH';
+    }
+    
+    // Programming/Technical Subjects
+    if (lowerTopic.includes('python') || lowerTopic.includes('java') || 
+        lowerTopic.includes('javascript') || lowerTopic.includes('coding') || 
+        lowerTopic.includes('programming') || lowerTopic.includes('data structures') || 
+        lowerTopic.includes('algorithms') || lowerTopic.includes('software') ||
+        lowerTopic.includes('html') || lowerTopic.includes('css') ||
+        lowerTopic.includes('react') || lowerTopic.includes('node')) {
+      return 'PROGRAMMING';
+    }
+    
+    // Theory/Conceptual Subjects (default for most other subjects)
+    return 'THEORY';
+  };
+
   const generateResourceGuide = (topicName: string) => {
     // Clean topic name for better suggestions (remove "Review" suffix if present)
     const cleanTopicName = topicName.replace(' Review', '');
+    const category = categorizeSubject(cleanTopicName);
     
-    // Generate smart study suggestions based on topic name and academic level
+    // Generate smart study suggestions based on category, topic name and academic level
     const keyTerms = generateKeyTerms(cleanTopicName, academicLevel);
     const levelSpecificBook = generateBookSuggestion(cleanTopicName, academicLevel);
     
+    // Category-specific advice
+    let howToLearn, practiceAdvice, bookAdvice;
+    
+    if (category === 'MATH') {
+      howToLearn = [
+        "Focus on understanding formulas and practicing derivations. Watch videos that solve problems step-by-step.",
+        `Search for "${cleanTopicName} ${academicLevel} solved examples" on YouTube`,
+        "Don't just memorize - understand the logic behind each step"
+      ];
+      practiceAdvice = {
+        howMany: "20-30 problems per day",
+        wherToFind: [
+          `Search for "${cleanTopicName} problem set with solutions"`,
+          `Look for "${cleanTopicName} ${academicLevel} practice worksheet PDF"`,
+          "Practice is key - solve problems daily to build muscle memory"
+        ]
+      };
+      bookAdvice = `For ${academicLevel}, common books are "${levelSpecificBook}". Search for "engineering mathematics 1 book pdf" or similar.`;
+    } else if (category === 'PROGRAMMING') {
+      howToLearn = [
+        "You must code along with the tutorial. Don't just watch.",
+        `Search for "${cleanTopicName} projects for beginners" or "${cleanTopicName} crash course"`,
+        "Set up a development environment and practice coding immediately"
+      ];
+      practiceAdvice = {
+        howMany: "Build 2-3 small projects",
+        wherToFind: [
+          "Solve problems on platforms like HackerRank or LeetCode for this topic",
+          `Search for "${cleanTopicName} coding challenges" or "${cleanTopicName} mini projects"`,
+          "GitHub has tons of beginner-friendly project ideas"
+        ]
+      };
+      bookAdvice = `Look for practical books like "Automate the Boring Stuff with Python" or "Head First Java" depending on your language.`;
+    } else { // THEORY subjects
+      howToLearn = [
+        "Focus on concepts, definitions, and case studies. Watch documentary-style videos or overview lectures.",
+        `Search for "${cleanTopicName} ${academicLevel} concepts explained" on YouTube`,
+        "Create mind maps to connect related concepts"
+      ];
+      practiceAdvice = {
+        howMany: "Focus on long and short answer questions",
+        wherToFind: [
+          `Search for "${cleanTopicName} important questions" or "${cleanTopicName} notes"`,
+          `Look for "${academicLevel} ${cleanTopicName} question bank PDF"`,
+          "Practice explaining concepts in your own words"
+        ]
+      };
+      bookAdvice = `Look for textbooks by your university's prescribed author. Search for "${cleanTopicName} textbook pdf" or "${academicLevel} ${cleanTopicName} notes".`;
+    }
+    
     return {
-      freeResources: [
-        `Search for "${cleanTopicName} ${academicLevel}" on YouTube. For example, for 'Calculus Class 12', search for 'Calculus Class 12 JEE' or 'Calculus CBSE Boards'`,
-        `Look for "${cleanTopicName}" courses on SWAYAM or NPTEL that are tagged for your level (e.g., 'Undergraduate')`,
-        `Check Khan Academy for "${cleanTopicName}" content suitable for your academic level`
-      ],
+      freeResources: howToLearn,
       bookSuggestions: [
-        `For your level, a common textbook is often "${levelSpecificBook}". Search for its PDF online`,
+        bookAdvice,
         `Search for "${cleanTopicName} ${academicLevel} textbook PDF" on Google Scholar`,
         `Check your library for books specifically recommended for ${academicLevel} students`
       ],
       keyTerms,
-      practiceQuestions: {
-        howMany: "10-15 practice problems",
-        wherToFind: [
-          `Search for "${cleanTopicName} ${academicLevel} important questions" or "${cleanTopicName} ${academicLevel} worksheet PDF"`,
-          `For exam prep, search for "${academicLevel} ${cleanTopicName} previous year papers"`,
-          `Check educational websites that specialize in ${academicLevel} level content`
-        ]
-      },
+      practiceQuestions: practiceAdvice,
       flashcards: {
         count: "5-7 flashcards",
         suggestion: "Use Anki or Quizlet to create digital flashcards for key terms and definitions"
