@@ -115,3 +115,17 @@ All colors MUST be HSL.
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
+
+/* Custom dark mode styles using .dark-mode class */
+body.dark-mode {
+  background-color: hsl(222.2, 84%, 4.9%);
+  color: hsl(210, 40%, 98%);
+}
+
+body.dark-mode .bg-primary {
+  background-color: hsl(217, 91%, 60%);
+}
+
+body.dark-mode .text-primary-foreground {
+  color: hsl(0, 0%, 100%);
+}
