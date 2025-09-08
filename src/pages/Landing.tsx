@@ -1,9 +1,11 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 
 const Landing = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -20,11 +22,13 @@ const Landing = () => {
           </p>
           
           {/* CTA Button */}
-          <Link to="/planner">
-            <Button size="lg" className="bg-primary hover:bg-primary-deep text-primary-foreground text-lg px-8 py-4 mb-16">
-              Start Planning Now →
-            </Button>
-          </Link>
+          <Button 
+            size="lg" 
+            onClick={() => navigate('/auth')}
+            className="bg-primary hover:bg-primary-deep text-primary-foreground text-lg px-8 py-4 mb-16"
+          >
+            Start Planning Now →
+          </Button>
           
           {/* Features List */}
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto text-left">
@@ -57,10 +61,10 @@ const Landing = () => {
             
             <div className="bg-card p-6 rounded-lg shadow-sm border">
               <h3 className="text-xl font-semibold text-card-foreground mb-3">
-                ✨ Simple & Free
+                ✨ Simple & Secure
               </h3>
               <p className="text-muted-foreground">
-                Easy to use, with no sign-up required.
+                Easy to use with secure account management.
               </p>
             </div>
           </div>
