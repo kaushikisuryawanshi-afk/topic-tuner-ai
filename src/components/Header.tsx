@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -50,7 +50,7 @@ const Header = () => {
           AI Study Planner
         </h1>
         <div className="flex items-center gap-2">
-          {user && (
+          {!loading && user && (
             <Button
               variant="ghost"
               size="sm"
