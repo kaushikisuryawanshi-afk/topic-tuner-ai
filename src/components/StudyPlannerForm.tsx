@@ -1,240 +1,386 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { X, Plus } from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export const StudyPlannerForm = () => {
+interface Topic {
+  id: string;
+  name: string;
+  priority: 'High' | 'Medium' | 'Low';
+  hours: number;
+}
+
+interface ScheduleSession {
+  hours: number;
+  type: 'NEW' | 'REVIEW';
+}
+
+interface TopicSchedule {
+  topicName: string;
+  sessions: ScheduleSession[];
+  totalHours: number;
+}
+
+interface DaySchedule {
+  date: string;
+  dayNumber: number;
+  topics: TopicSchedule[];
+  totalScheduledHours: number;
+  availableHours: number;
+}
+
+const StudyPlannerForm = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [examDate, setExamDate] = useState("");
-  const [hoursPerDay, setHoursPerDay] = useState("");
-  const [academicLevel, setAcademicLevel] = useState("");
-  const [topics, setTopics] = useState<string[]>([]);
-  const [currentTopic, setCurrentTopic] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [examDate, setExamDate] = useState('');
+  const [studyHours, setStudyHours] = useState('');
+  const [academicLevel, setAcademicLevel] = useState('');
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [newTopic, setNewTopic] = useState<{
+    name: string;
+    priority: 'High' | 'Medium' | 'Low';
+    hours: string;
+  }>({
+    name: '',
+    priority: 'Medium',
+    hours: ''
+  });
 
   const addTopic = () => {
-    if (currentTopic.trim() && !topics.includes(currentTopic.trim())) {
-      setTopics([...topics, currentTopic.trim()]);
-      setCurrentTopic("");
+    if (newTopic.name && newTopic.hours) {
+      const topic: Topic = {
+        id: Date.now().toString(),
+        name: newTopic.name,
+        priority: newTopic.priority,
+        hours: parseFloat(newTopic.hours)
+      };
+      setTopics([...topics, topic]);
+      setNewTopic({ name: '', priority: 'Medium', hours: '' });
     }
   };
 
-  const removeTopic = (topicToRemove: string) => {
-    setTopics(topics.filter(topic => topic !== topicToRemove));
+  const removeTopic = (id: string) => {
+    setTopics(topics.filter(topic => topic.id !== id));
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addTopic();
-    }
-  };
-
-  const generateStudyPlan = () => {
+  const generatePlan = () => {
+    // Step 1: Sort topics by priority
+    const priorityOrder = { 'High': 0, 'Medium': 1, 'Low': 2 };
+    const sortedTopics = [...topics].sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+    
+    // Step 2: Calculate total days
     const today = new Date();
     const examDateObj = new Date(examDate);
     const totalDays = Math.ceil((examDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
-    const dailyHours = parseInt(hoursPerDay);
-    const schedule = [];
+    if (totalDays <= 0) {
+      alert('Exam date must be in the future!');
+      return;
+    }
     
-    // Simple algorithm to distribute topics across days
-    const topicsPerDay = Math.ceil(topics.length / Math.max(1, totalDays));
+    // Step 3: Create empty day-by-day schedule with new structure
+    const dailyHours = parseFloat(studyHours);
+    const daySchedules: DaySchedule[] = [];
+    const remainingHours: number[] = [];
     
-    for (let day = 0; day < totalDays; day++) {
+    for (let i = 0; i < totalDays; i++) {
       const currentDate = new Date(today);
-      currentDate.setDate(today.getDate() + day);
-      
-      const dayTopics = topics.slice(day * topicsPerDay, (day + 1) * topicsPerDay);
-      const hoursPerTopic = Math.floor(dailyHours / Math.max(1, dayTopics.length));
-      
-      schedule.push({
-        day: day + 1,
-        date: currentDate.toLocaleDateString(),
-        topics: dayTopics.map(topic => ({
-          name: topic,
-          hours: hoursPerTopic,
-          type: 'study'
-        })),
-        totalHours: dailyHours
+      currentDate.setDate(today.getDate() + i);
+      daySchedules.push({
+        date: currentDate.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }),
+        dayNumber: i + 1,
+        topics: [],
+        totalScheduledHours: 0,
+        availableHours: dailyHours
       });
+      remainingHours.push(dailyHours);
     }
     
-    return schedule;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    // Step 4: Schedule topics with grouped structure
+    const topicsToReview: { topicName: string, firstScheduledDay: number }[] = [];
     
-    if (!examDate || !hoursPerDay || !academicLevel || topics.length === 0) {
-      toast.error("Please fill in all fields and add at least one topic");
-      return;
-    }
-
-    if (!user) {
-      toast.error("Please sign in to generate a study plan");
-      return;
-    }
-
-    setIsGenerating(true);
-    
-    try {
-      // Generate the study plan
-      const studyPlan = generateStudyPlan();
+    for (const topic of sortedTopics) {
+      let topicHoursLeft = topic.hours;
       
-      // Save to database
-      const { error } = await supabase
-        .from('study_plans')
-        .insert({
-          user_id: user.id,
-          exam_date: examDate,
-          hours_per_day: parseInt(hoursPerDay),
-          academic_level: academicLevel,
-          topics,
-          generated_plan: studyPlan
-        });
-
-      if (error) {
-        console.error('Error saving study plan:', error);
-        toast.error("Failed to save study plan");
-        return;
-      }
-
-      // Navigate to results page with the study plan data
-      navigate('/results', { 
-        state: { 
-          studyPlan,
-          formData: {
-            examDate,
-            hoursPerDay: parseInt(hoursPerDay),
-            academicLevel,
-            topics
+      while (topicHoursLeft > 0) {
+        // Find first day with available hours
+        let scheduledDay = -1;
+        for (let dayIndex = 0; dayIndex < totalDays; dayIndex++) {
+          if (remainingHours[dayIndex] >= 1) {
+            scheduledDay = dayIndex;
+            break;
           }
         }
-      });
-      
-      toast.success("Study plan generated and saved!");
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error("Failed to generate study plan");
-    } finally {
-      setIsGenerating(false);
+        
+        if (scheduledDay === -1) {
+          alert(`Not enough time to schedule all topics! Consider increasing daily study hours or extending exam date.`);
+          return;
+        }
+        
+        // Schedule 1-2 hour block (or remaining hours if less)
+        const hoursToSchedule = Math.min(Math.min(2, topicHoursLeft), remainingHours[scheduledDay]);
+        
+        // Find existing topic in this day or create new one
+        let existingTopicIndex = daySchedules[scheduledDay].topics.findIndex(t => t.topicName === topic.name);
+        
+        if (existingTopicIndex === -1) {
+          // Create new topic entry for this day
+          daySchedules[scheduledDay].topics.push({
+            topicName: topic.name,
+            sessions: [{
+              hours: hoursToSchedule,
+              type: 'NEW'
+            }],
+            totalHours: hoursToSchedule
+          });
+        } else {
+          // Add to existing topic
+          daySchedules[scheduledDay].topics[existingTopicIndex].sessions.push({
+            hours: hoursToSchedule,
+            type: 'NEW'
+          });
+          daySchedules[scheduledDay].topics[existingTopicIndex].totalHours += hoursToSchedule;
+        }
+        
+        // Track first scheduled day for review
+        if (topicHoursLeft === topic.hours) {
+          topicsToReview.push({ topicName: topic.name, firstScheduledDay: scheduledDay });
+        }
+        
+        daySchedules[scheduledDay].totalScheduledHours += hoursToSchedule;
+        remainingHours[scheduledDay] -= hoursToSchedule;
+        topicHoursLeft -= hoursToSchedule;
+      }
     }
+    
+    // Step 5: Add spaced repetition (review sessions) - 2 days later
+    for (const { topicName, firstScheduledDay } of topicsToReview) {
+      const reviewDay = firstScheduledDay + 2;
+      
+      if (reviewDay < totalDays && remainingHours[reviewDay] >= 1) {
+        // Find existing topic in review day or create new one
+        let existingTopicIndex = daySchedules[reviewDay].topics.findIndex(t => t.topicName === topicName);
+        
+        if (existingTopicIndex === -1) {
+          // Create new topic entry for review
+          daySchedules[reviewDay].topics.push({
+            topicName: `${topicName} Review`,
+            sessions: [{
+              hours: 1,
+              type: 'REVIEW'
+            }],
+            totalHours: 1
+          });
+        } else {
+          // Add review session to existing topic
+          daySchedules[reviewDay].topics[existingTopicIndex].sessions.push({
+            hours: 1,
+            type: 'REVIEW'
+          });
+          daySchedules[reviewDay].topics[existingTopicIndex].totalHours += 1;
+        }
+        
+        daySchedules[reviewDay].totalScheduledHours += 1;
+        remainingHours[reviewDay] -= 1;
+      }
+    }
+    // Navigate to results page with the generated schedule data
+    navigate('/results', { 
+      state: { 
+        examDate, 
+        studyHours, 
+        academicLevel, 
+        topics, 
+        schedule: daySchedules 
+      } 
+    });
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-8">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Create Your AI Study Plan</h1>
-        <p className="text-muted-foreground">Fill in your details to get a personalized study schedule</p>
-      </div>
+    <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+      {/* Goal Section */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold text-foreground">1. Set Your Goal</h2>
+        <div className="space-y-2">
+          <Label htmlFor="exam-date" className="text-base font-medium">
+            Exam Date:
+          </Label>
+          <Input
+            id="exam-date"
+            type="date"
+            value={examDate}
+            onChange={(e) => setExamDate(e.target.value)}
+            required
+            className="w-full max-w-xs"
+          />
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Study Plan Details</CardTitle>
-          <CardDescription>
-            Tell us about your exam and study preferences
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="exam-date">Exam Date</Label>
-                <Input
-                  id="exam-date"
-                  type="date"
-                  value={examDate}
-                  onChange={(e) => setExamDate(e.target.value)}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="hours-per-day">Study Hours Per Day</Label>
-                <Input
-                  id="hours-per-day"
-                  type="number"
-                  min="1"
-                  max="12"
-                  value={hoursPerDay}
-                  onChange={(e) => setHoursPerDay(e.target.value)}
-                  placeholder="e.g., 4"
-                  required
-                />
-              </div>
-            </div>
+      {/* Availability Section */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold text-foreground">2. Your Availability</h2>
+        <div className="space-y-2">
+          <Label htmlFor="study-hours" className="text-base font-medium">
+            Available Study Hours Per Day:
+          </Label>
+          <Input
+            id="study-hours"
+            type="number"
+            min="0.5"
+            step="0.5"
+            value={studyHours}
+            onChange={(e) => setStudyHours(e.target.value)}
+            required
+            className="w-full max-w-xs"
+            placeholder="e.g., 3.5"
+          />
+        </div>
+      </section>
 
-            <div className="space-y-2">
-              <Label htmlFor="academic-level">Academic Level</Label>
-              <Select value={academicLevel} onValueChange={setAcademicLevel} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your academic level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high-school">High School</SelectItem>
-                  <SelectItem value="undergraduate">Undergraduate</SelectItem>
-                  <SelectItem value="graduate">Graduate</SelectItem>
-                  <SelectItem value="professional">Professional/Certification</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Academic Level Section */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold text-foreground">3. Academic Level</h2>
+        <div className="space-y-2">
+          <Label htmlFor="academic-level" className="text-base font-medium">
+            Academic Level / Course Context:
+          </Label>
+          <Input
+            id="academic-level"
+            type="text"
+            value={academicLevel}
+            onChange={(e) => setAcademicLevel(e.target.value)}
+            required
+            className="w-full max-w-md"
+            placeholder="e.g., 'Class 10 CBSE', '1st Year Computer Science', 'GMAT Prep', 'Self-Learner'"
+          />
+        </div>
+      </section>
 
-            <div className="space-y-4">
-              <Label>Study Topics</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={currentTopic}
-                  onChange={(e) => setCurrentTopic(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Enter a topic (e.g., Linear Algebra)"
-                  className="flex-1"
-                />
-                <Button type="button" onClick={addTopic} size="icon">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {topics.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {topics.map((topic, index) => (
-                    <Badge key={index} variant="secondary" className="text-sm">
-                      {topic}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => removeTopic(topic)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              
-              {topics.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Add at least one topic to generate your study plan
-                </p>
-              )}
-            </div>
+      {/* Topics Section */}
+      <section className="space-y-6">
+        <h2 className="text-2xl font-semibold text-foreground">4. Add Your Topics</h2>
+        <p className="text-muted-foreground">
+          Enter each topic you need to study, its priority, and how long you think it will take.
+        </p>
 
-            <Button
-              type="submit"
+        {/* Add Topic Form */}
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-[200px] space-y-2">
+            <Label htmlFor="topic-name" className="text-sm font-medium">
+              Topic Name
+            </Label>
+            <Input
+              id="topic-name"
+              type="text"
+              placeholder="e.g., Neural Networks"
+              value={newTopic.name}
+              onChange={(e) => setNewTopic({ ...newTopic, name: e.target.value })}
               className="w-full"
-              disabled={isGenerating || !examDate || !hoursPerDay || !academicLevel || topics.length === 0}
-            >
-              {isGenerating ? "Generating..." : "Generate My AI Study Plan"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            />
+          </div>
+          
+          <div className="min-w-[130px] space-y-2">
+            <Label className="text-sm font-medium">Priority</Label>
+            <Select value={newTopic.priority} onValueChange={(value) => setNewTopic({ ...newTopic, priority: value as 'High' | 'Medium' | 'Low' })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="High">High</SelectItem>
+                <SelectItem value="Medium">Medium</SelectItem>
+                <SelectItem value="Low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="min-w-[100px] space-y-2">
+            <Label htmlFor="topic-hours" className="text-sm font-medium">
+              Hours
+            </Label>
+            <Input
+              id="topic-hours"
+              type="number"
+              min="1"
+              step="0.5"
+              placeholder="Hours"
+              value={newTopic.hours}
+              onChange={(e) => setNewTopic({ ...newTopic, hours: e.target.value })}
+            />
+          </div>
+          
+          <Button 
+            variant="success" 
+            onClick={addTopic}
+            className="mb-0"
+          >
+            Add Topic
+          </Button>
+        </div>
+
+        {/* Topics Table */}
+        {topics.length > 0 && (
+          <div className="bg-card border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-4 font-semibold">Topic Name</th>
+                  <th className="text-left p-4 font-semibold">Priority</th>
+                  <th className="text-left p-4 font-semibold">Hours</th>
+                  <th className="text-left p-4 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topics.map((topic) => (
+                  <tr key={topic.id} className="border-t">
+                    <td className="p-4 font-medium">{topic.name}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        topic.priority === 'High' ? 'bg-destructive/10 text-destructive' :
+                        topic.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {topic.priority}
+                      </span>
+                    </td>
+                    <td className="p-4">{topic.hours}</td>
+                    <td className="p-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeTopic(topic.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Remove
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Generate Plan Button */}
+      <div className="pt-6">
+        <Button
+          variant="primary-deep"
+          size="lg"
+          onClick={generatePlan}
+          className="w-full max-w-md mx-auto block py-4 text-lg"
+          disabled={!examDate || !studyHours || !academicLevel || topics.length === 0}
+        >
+        </Button>
+      </div>
     </div>
   );
 };
+
+export default StudyPlannerForm;
