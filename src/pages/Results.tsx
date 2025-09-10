@@ -63,22 +63,29 @@ const Results = () => {
   const categorizeSubject = (topicName: string) => {
     const lowerTopic = topicName.toLowerCase();
     
-    // Math/Quantitative Subjects
-    if (lowerTopic.includes('calculus') || lowerTopic.includes('algebra') || 
-        lowerTopic.includes('geometry') || lowerTopic.includes('trigonometry') || 
-        lowerTopic.includes('probability') || lowerTopic.includes('statistics') || 
-        lowerTopic.includes('maths') || lowerTopic.includes('mathematics') ||
-        lowerTopic.includes('differential') || lowerTopic.includes('integral')) {
+    // Math/Quantitative Subjects - Enhanced detection
+    const mathKeywords = [
+      'calculus', 'algebra', 'geometry', 'trigonometry', 'probability', 'statistics',
+      'maths', 'mathematics', 'differential', 'integral', 'linear algebra', 'discrete math',
+      'numerical analysis', 'real analysis', 'complex analysis', 'topology', 'number theory',
+      'matrix', 'vector', 'derivative', 'integration', 'limit', 'function', 'equation',
+      'graph theory', 'combinatorics', 'optimization', 'mathematical modeling'
+    ];
+    
+    // Programming/Technical Subjects - Enhanced detection  
+    const programmingKeywords = [
+      'python', 'java', 'javascript', 'c++', 'c#', 'coding', 'programming', 'software',
+      'data structures', 'algorithms', 'html', 'css', 'react', 'node', 'angular', 'vue',
+      'machine learning', 'ai', 'artificial intelligence', 'deep learning', 'neural networks',
+      'database', 'sql', 'web development', 'mobile development', 'api', 'backend', 'frontend',
+      'devops', 'cloud computing', 'cybersecurity', 'blockchain', 'data science', 'big data'
+    ];
+    
+    if (mathKeywords.some(keyword => lowerTopic.includes(keyword))) {
       return 'MATH';
     }
     
-    // Programming/Technical Subjects
-    if (lowerTopic.includes('python') || lowerTopic.includes('java') || 
-        lowerTopic.includes('javascript') || lowerTopic.includes('coding') || 
-        lowerTopic.includes('programming') || lowerTopic.includes('data structures') || 
-        lowerTopic.includes('algorithms') || lowerTopic.includes('software') ||
-        lowerTopic.includes('html') || lowerTopic.includes('css') ||
-        lowerTopic.includes('react') || lowerTopic.includes('node')) {
+    if (programmingKeywords.some(keyword => lowerTopic.includes(keyword))) {
       return 'PROGRAMMING';
     }
     
@@ -87,55 +94,60 @@ const Results = () => {
   };
 
   const generateKeyTerms = (topicName: string, level: string) => {
-    // Level-appropriate inference of key terms based on topic name and academic level
     const lowerTopic = topicName.toLowerCase();
-    const lowerLevel = level.toLowerCase();
+    const category = categorizeSubject(topicName);
     
-    if (lowerTopic.includes('calculus')) {
-      if (lowerLevel.includes('class 11') || lowerLevel.includes('class 12')) {
-        return ['limits', 'derivatives', 'applications of derivatives'];
-      } else if (lowerLevel.includes('engineering') || lowerLevel.includes('university')) {
-        return ['differential calculus', 'integral calculus', 'multivariable calculus'];
+    // Math/Quantitative Topics
+    if (category === 'MATH') {
+      if (lowerTopic.includes('calculus')) {
+        return ['limits', 'derivatives', 'integrals', 'fundamental theorem of calculus', 'chain rule', 'integration by parts'];
+      } else if (lowerTopic.includes('algebra')) {
+        return ['variables', 'equations', 'functions', 'polynomials', 'factoring', 'graphing'];
+      } else if (lowerTopic.includes('probability')) {
+        return ['sample space', 'events', 'conditional probability', 'bayes theorem', 'distributions', 'expected value'];
+      } else if (lowerTopic.includes('statistics')) {
+        return ['mean', 'median', 'standard deviation', 'hypothesis testing', 'regression', 'correlation'];
+      } else if (lowerTopic.includes('linear algebra')) {
+        return ['vectors', 'matrices', 'eigenvalues', 'linear transformations', 'vector spaces', 'determinants'];
       } else {
-        return ['derivatives', 'integrals', 'limits'];
+        return ['formulas', 'proofs', 'problem-solving techniques', 'mathematical reasoning'];
       }
-    } else if (lowerTopic.includes('algebra')) {
-      if (lowerLevel.includes('class 9') || lowerLevel.includes('class 10')) {
-        return ['linear equations', 'quadratic equations', 'polynomials'];
+    }
+    
+    // Programming/Technical Topics
+    else if (category === 'PROGRAMMING') {
+      if (lowerTopic.includes('python')) {
+        return ['loops', 'functions', 'list comprehensions', 'OOP', 'modules', 'exception handling'];
+      } else if (lowerTopic.includes('java')) {
+        return ['classes', 'objects', 'inheritance', 'polymorphism', 'interfaces', 'exception handling'];
+      } else if (lowerTopic.includes('javascript')) {
+        return ['functions', 'objects', 'arrays', 'DOM manipulation', 'async/await', 'closures'];
+      } else if (lowerTopic.includes('data structures')) {
+        return ['arrays', 'linked lists', 'stacks', 'queues', 'trees', 'graphs', 'hash tables'];
+      } else if (lowerTopic.includes('algorithms')) {
+        return ['time complexity', 'space complexity', 'sorting', 'searching', 'recursion', 'dynamic programming'];
+      } else if (lowerTopic.includes('machine learning')) {
+        return ['supervised learning', 'unsupervised learning', 'neural networks', 'feature engineering', 'model evaluation'];
       } else {
-        return ['equations', 'variables', 'functions'];
+        return ['syntax', 'debugging', 'best practices', 'code organization', 'testing'];
       }
-    } else if (lowerTopic.includes('shakespeare')) {
-      if (lowerLevel.includes('class 9') || lowerLevel.includes('icse') || lowerLevel.includes('cbse')) {
-        return ['Macbeth themes', 'character analysis', 'plot summary'];
-      } else if (lowerLevel.includes('ma') || lowerLevel.includes('literature')) {
-        return ['critical analysis', 'literary devices', 'contextual interpretation'];
+    }
+    
+    // Theoretical/Conceptual Topics
+    else {
+      if (lowerTopic.includes('history of ai')) {
+        return ['Turing Test', 'Alan Turing', 'John McCarthy', 'AI winter', 'machine learning evolution', 'expert systems'];
+      } else if (lowerTopic.includes('environmental science')) {
+        return ['ecosystem', 'biodiversity', 'climate change', 'sustainability', 'pollution', 'conservation'];
+      } else if (lowerTopic.includes('email writing')) {
+        return ['subject lines', 'professional tone', 'structure', 'etiquette', 'call to action', 'formatting'];
+      } else if (lowerTopic.includes('psychology')) {
+        return ['cognitive processes', 'behavioral theories', 'research methods', 'key theorists', 'applications'];
+      } else if (lowerTopic.includes('economics')) {
+        return ['supply and demand', 'market structures', 'fiscal policy', 'monetary policy', 'elasticity'];
       } else {
-        return ['themes', 'characters', 'literary techniques'];
+        return ['key concepts', 'definitions', 'theories', 'applications', 'case studies'];
       }
-    } else if (lowerTopic.includes('physics')) {
-      if (lowerLevel.includes('class 11') || lowerLevel.includes('class 12')) {
-        return ['mechanics', 'thermodynamics', 'electromagnetism'];
-      } else {
-        return ['forces', 'energy', 'motion'];
-      }
-    } else if (lowerTopic.includes('chemistry')) {
-      return ['molecules', 'reactions', 'bonds'];
-    } else if (lowerTopic.includes('biology')) {
-      return ['cells', 'genetics', 'evolution'];
-    } else if (lowerTopic.includes('programming') || lowerTopic.includes('coding')) {
-      if (lowerLevel.includes('1st year') || lowerLevel.includes('beginner')) {
-        return ['syntax', 'variables', 'loops'];
-      } else {
-        return ['algorithms', 'data structures', 'debugging'];
-      }
-    } else if (lowerTopic.includes('history')) {
-      return ['timeline', 'causes', 'effects'];
-    } else if (lowerTopic.includes('english') || lowerTopic.includes('literature')) {
-      return ['themes', 'analysis', 'structure'];
-    } else {
-      // Generic terms based on the topic name itself
-      return [topicName.toLowerCase(), 'concepts', 'applications'];
     }
   };
 
@@ -172,76 +184,104 @@ const Results = () => {
     }
   };
 
-  const generateResourceGuide = (topicName: string) => {
-    if (!studyPlanData) return null;
-
+  const getTopicResources = (topicName: string, academicLevel: string) => {
     // Clean topic name for better suggestions (remove "Review" suffix if present)
     const cleanTopicName = topicName.replace(' Review', '');
     const category = categorizeSubject(cleanTopicName);
     
-    // Generate smart study suggestions based on category, topic name and academic level
-    const keyTerms = generateKeyTerms(cleanTopicName, studyPlanData.academicLevel);
-    const levelSpecificBook = generateBookSuggestion(cleanTopicName, studyPlanData.academicLevel);
+    // Generate context-aware key concepts
+    const keyTerms = generateKeyTerms(cleanTopicName, academicLevel);
+    const levelSpecificBook = generateBookSuggestion(cleanTopicName, academicLevel);
     
-    // Category-specific advice
-    let howToLearn, practiceAdvice, bookAdvice;
-    
+    // Math/Quantitative Topics
     if (category === 'MATH') {
-      howToLearn = [
-        "Focus on understanding formulas and practicing derivations. Watch videos that solve problems step-by-step.",
-        `Search for "${cleanTopicName} ${studyPlanData.academicLevel} solved examples" on YouTube`,
-        "Don't just memorize - understand the logic behind each step"
-      ];
-      practiceAdvice = {
-        howMany: "20-30 problems per day",
-        wherToFind: [
-          `Search for "${cleanTopicName} problem set with solutions"`,
-          `Look for "${cleanTopicName} ${studyPlanData.academicLevel} practice worksheet PDF"`,
-          "Practice is key - solve problems daily to build muscle memory"
+      return {
+        howToLearn: [
+          "Focus on deriving formulas and solving step-by-step problems. Watch videos that trace the logic from first principles.",
+          `Search for "${cleanTopicName} derivation explained" and "${cleanTopicName} step by step solutions"`,
+          "Practice writing out complete solutions, don't skip steps even if they seem obvious"
+        ],
+        practice: {
+          amount: "Aim for 20-30 varied problems daily",
+          resources: [
+            `Search for "${cleanTopicName} problem set with solutions PDF"`,
+            `Look for "${cleanTopicName} ${academicLevel} practice problems"`,
+            "Focus on problems that build from basic to advanced difficulty"
+          ]
+        },
+        keyConcepts: keyTerms,
+        bookSuggestions: [
+          levelSpecificBook,
+          `Search for "${cleanTopicName} ${academicLevel} textbook PDF"`,
+          "Look for solution manuals to verify your problem-solving approach"
         ]
       };
-      bookAdvice = `For ${studyPlanData.academicLevel}, common books are "${levelSpecificBook}". Search for "engineering mathematics 1 book pdf" or similar.`;
-    } else if (category === 'PROGRAMMING') {
-      howToLearn = [
-        "You must code along with the tutorial. Don't just watch.",
-        `Search for "${cleanTopicName} projects for beginners" or "${cleanTopicName} crash course"`,
-        "Set up a development environment and practice coding immediately"
-      ];
-      practiceAdvice = {
-        howMany: "Build 2-3 small projects",
-        wherToFind: [
-          "Solve problems on platforms like HackerRank or LeetCode for this topic",
-          `Search for "${cleanTopicName} coding challenges" or "${cleanTopicName} mini projects"`,
-          "GitHub has tons of beginner-friendly project ideas"
-        ]
-      };
-      bookAdvice = `Look for practical books like "Automate the Boring Stuff with Python" or "Head First Java" depending on your language.`;
-    } else { // THEORY subjects
-      howToLearn = [
-        "Focus on concepts, definitions, and case studies. Watch documentary-style videos or overview lectures.",
-        `Search for "${cleanTopicName} ${studyPlanData.academicLevel} concepts explained" on YouTube`,
-        "Create mind maps to connect related concepts"
-      ];
-      practiceAdvice = {
-        howMany: "Focus on long and short answer questions",
-        wherToFind: [
-          `Search for "${cleanTopicName} important questions" or "${cleanTopicName} notes"`,
-          `Look for "${studyPlanData.academicLevel} ${cleanTopicName} question bank PDF"`,
-          "Practice explaining concepts in your own words"
-        ]
-      };
-      bookAdvice = `Look for textbooks by your university's prescribed author. Search for "${cleanTopicName} textbook pdf" or "${studyPlanData.academicLevel} ${cleanTopicName} notes".`;
     }
     
+    // Programming/Technical Topics  
+    else if (category === 'PROGRAMMING') {
+      return {
+        howToLearn: [
+          "You must code along. Build a small project. Don't just watch tutorials passively.",
+          `Search for "${cleanTopicName} project tutorial for beginners"`,
+          "Set up your development environment and practice immediately after learning each concept"
+        ],
+        practice: {
+          amount: "Build 2-3 projects and solve coding problems daily",
+          resources: [
+            `Solve problems on LeetCode or HackerRank tagged "${cleanTopicName}"`,
+            `Search for "${cleanTopicName} coding challenges" and "${cleanTopicName} mini projects"`,
+            "Build a portfolio project to demonstrate your understanding"
+          ]
+        },
+        keyConcepts: keyTerms,
+        bookSuggestions: [
+          levelSpecificBook,
+          `Look for hands-on books with projects for ${cleanTopicName}`,
+          "GitHub repositories with example projects and code samples"
+        ]
+      };
+    }
+    
+    // Theoretical/Conceptual Topics
+    else {
+      return {
+        howToLearn: [
+          "Create mind maps or flashcards for key terms. Watch documentary-style explanations.",
+          `Search for "${cleanTopicName} ${academicLevel} concepts overview"`,
+          "Focus on understanding relationships between concepts rather than memorizing facts"
+        ],
+        practice: {
+          amount: "Focus on past exam questions and case studies",
+          resources: [
+            `Search for "${cleanTopicName} important questions ${academicLevel}"`,
+            `Look for "${cleanTopicName} ${academicLevel} question bank PDF"`,
+            "Practice writing detailed answers and explaining concepts in your own words"
+          ]
+        },
+        keyConcepts: keyTerms,
+        bookSuggestions: [
+          levelSpecificBook,
+          `Search for "${cleanTopicName} ${academicLevel} study guide"`,
+          "Academic journals and research papers for deeper understanding"
+        ]
+      };
+    }
+  };
+
+  const generateResourceGuide = (topicName: string) => {
+    if (!studyPlanData) return null;
+
+    const resources = getTopicResources(topicName, studyPlanData.academicLevel);
+    
     return {
-      freeResources: howToLearn,
-      bookSuggestions: [
-        bookAdvice,
-        `Search for "${cleanTopicName} ${studyPlanData.academicLevel} textbook PDF" on Google Scholar`,
-        `Check your library for books specifically recommended for ${studyPlanData.academicLevel} students`
-      ],
-      keyTerms,
-      practiceQuestions: practiceAdvice,
+      freeResources: resources.howToLearn,
+      bookSuggestions: resources.bookSuggestions,
+      keyTerms: resources.keyConcepts,
+      practiceQuestions: {
+        howMany: resources.practice.amount,
+        wherToFind: resources.practice.resources
+      },
       flashcards: {
         count: "5-7 flashcards",
         suggestion: "Use Anki or Quizlet to create digital flashcards for key terms and definitions"
